@@ -2,12 +2,12 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>3D Dünya Saatleri - Three.js</title>
+    <title>Dinamik 3D Dünya Saatleri</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; }
         canvas { display: block; }
 
-        /* Popup stili */
+        /* Pop-up stili */
         .clock-popup {
             background-color: white;
             color: #333;
@@ -17,7 +17,7 @@
             white-space: nowrap;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             font-size: 14px;
-            pointer-events: none; /* Mouse olaylarını geçirme */
+            pointer-events: none; /* Mouse olaylarını 3D nesneye geçirme */
             transform: translate(-50%, -100%); /* Pop-up'ı merkeze ve üste kaydır */
         }
         .clock-popup .name {
@@ -35,6 +35,11 @@
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+    
+    <script src="main.js"></script>
+</body>
+</html>    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
     
     <script src="main.js"></script>
