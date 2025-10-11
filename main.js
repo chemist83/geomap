@@ -18,19 +18,18 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(width, height);
 container.appendChild(renderer.domElement);
 
-// --- IŞIKLANDIRMA (FİNAL AYARLARI: Yüksek Kontrast) ---
+// --- IŞIKLANDIRMA (GÖRÜNÜRLÜK VE KONTRAST İÇİN AYARLANDI) ---
 
-// 1. Ortam Işığını DÜŞÜK TUT (Gece tarafının karanlık kalmasını sağlar)
-const ambientLight = new THREE.AmbientLight(0x404040, 0.05); 
+// 1. Ortam Işığı (AmbientLight): Çok düşük tutulur, karanlık bölgelerin simsiyah kalmasını sağlar.
+const ambientLight = new THREE.AmbientLight(0x404040, 0.03); 
 scene.add(ambientLight);
 
-// 2. Yönlü Işık Şiddetini YÜKSELT (Gündüz tarafının parlak olmasını sağlar)
-const sunlight = new THREE.DirectionalLight(0xffffff, 1.5); // <-- 0.6'dan 1.5'e artırıldı
+// 2. Yönlü Işık (sunlight): Gündüz tarafının parlak ve görünür olmasını garanti eder.
+const sunlight = new THREE.DirectionalLight(0xffffff, 2.0); // Şiddet tekrar artırıldı
 sunlight.position.set(2, 0, 0); 
 scene.add(sunlight);
 
-// ... Kodun geri kalanı aynı kalır ...
-// --- KONTROLLER ---
+// --- KONTROLLER (OrbitControls) ---
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.minDistance = 6;
 controls.maxDistance = 15;
@@ -51,6 +50,7 @@ function createEarth() {
     const geometry = new THREE.SphereGeometry(EARTH_RADIUS, 64, 64);
     const loader = new THREE.TextureLoader();
     
+    // Harici dokular yükleniyor (Yerel sunucu gereklidir!)
     const dayTexture = loader.load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg');
     const nightTexture = loader.load('https://threejs.org/examples/textures/planets/earth_lights_2048.png');
     
@@ -80,12 +80,12 @@ function createEarth() {
                 vec4 dayColor = texture2D(dayTexture, vUv);
                 vec4 nightColor = texture2D(nightTexture, vUv);
                 
-                // Aydınlık ve karanlık bölgeler arasında yumuşak geçiş
-                float darkness = 1.0 - smoothstep(-0.2, 0.2, intensity);
+                // KRİTİK DÜZELTME: smoothstep eşiği (-0.4, 0.2)
+                // Bu, karanlık (intensity < 0) olduğunda bile rengin tamamen kaybolmamasını ve yumuşak geçişi sağlar.
+                float darkness = 1.0 - smoothstep(-0.4, 0.2, intensity); 
                 float dayLight = 1.0 - darkness;
                 
-                // Final rengi
-                vec4 finalColor = mix(dayColor, nightColor, darkness * 0.9); // Şehir ışıklarının etkisini biraz artır
+                vec4 finalColor = mix(dayColor, nightColor, darkness * 0.9);
                 
                 gl_FragColor = finalColor * dayLight;
                 gl_FragColor.a = 1.0;
@@ -118,7 +118,7 @@ function getGMTRotationAngle() {
     
     const angle = rotationRatio * Math.PI * 2; 
     
-    // Haritayı UTC saatine tam olarak hizalamak için gerekli ofset (120 derece)
+    // **KRİTİK OFSET:** Haritayı UTC saatine hizalar (Türkiye 22:00'da karanlıkta).
     const HARITA_HIZALAMA_OFSETI = THREE.MathUtils.degToRad(120); 
 
     return angle + HARITA_HIZALAMA_OFSETI; 
@@ -163,18 +163,15 @@ function updateClockList() {
 // Saati her saniye güncelle
 setInterval(updateClockList, 1000);
 
-// --- ANİMASYON DÖNGÜSÜ (Işık Yönü Rotasyonu) ---
+// --- ANİMASYON DÖNGÜSÜ ---
 function animate() {
     requestAnimationFrame(animate);
 
     if (earth) {
         controls.update(); 
         
-        // DÜZELTME: Dünya hep dönsün (24 saat döngüsü)
-        // Kullanıcının etkileşimi bittikten sonra, UTC senkronizasyonuna dönecek.
         if (!isUserInteracting) {
             
-            // Işık Yönünü UTC saatine göre döndür
             const targetLightAngle = getGMTRotationAngle(); 
             
             // Işık vektörünü Y ekseni etrafında döndür (Negatif açı, doğru dönüş yönü için)
