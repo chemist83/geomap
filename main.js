@@ -18,21 +18,23 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(width, height);
 container.appendChild(renderer.domElement);
 
-// --- IŞIKLANDIRMA ---
-const sunlight = new THREE.DirectionalLight(0xffffff, 2.5);
-sunlight.position.set(2, 0, 0); 
-scene.add(sunlight);
-const ambientLight = new THREE.AmbientLight(0x404040, 0.5); 
+// --- IŞIKLANDIRMA (KRİTİK DÜZELTME) ---
+// 1. Ortam Işığını azaltarak karanlık bölgelerin gerçekten karanlık kalmasını sağla.
+const ambientLight = new THREE.AmbientLight(0x404040, 0.1); // Şiddet 0.5'ten 0.1'e düşürüldü
 scene.add(ambientLight);
 
-// --- KONTROLLER (OrbitControls) ---
+// 2. Yönlü Işık, Sahnenin genel aydınlatması için gereklidir (Şiddeti makul seviyede tutuldu).
+const sunlight = new THREE.DirectionalLight(0xffffff, 0.8); // Şiddet 2.5'ten 0.8'e düşürüldü
+sunlight.position.set(2, 0, 0); 
+scene.add(sunlight);
+
+// --- KONTROLLER ---
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.minDistance = 6;
 controls.maxDistance = 15;
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
 
-// Kullanıcı etkileşimini yönetme
 controls.addEventListener('start', () => {
     isUserInteracting = true;
 });
@@ -42,12 +44,11 @@ controls.addEventListener('end', () => {
     }, 1000); 
 });
 
-// --- DÜNYA KÜRESİ OLUŞTURMA (Shader ile) ---
+// --- DÜNYA KÜRESİ OLUŞTURMA (SHADER İLE) ---
 function createEarth() {
     const geometry = new THREE.SphereGeometry(EARTH_RADIUS, 64, 64);
     const loader = new THREE.TextureLoader();
     
-    // Harici dokular yükleniyor (Yerel sunucu gereklidir!)
     const dayTexture = loader.load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg');
     const nightTexture = loader.load('https://threejs.org/examples/textures/planets/earth_lights_2048.png');
     
@@ -63,7 +64,6 @@ function createEarth() {
             uniform vec3 lightDirection;
             void main() {
                 vUv = uv;
-                // Işık Yönünü model matrisi ile çarp (Dünyanın kendi dönüşünü hesaba katmak için)
                 vec3 transformedNormal = normalize(normalMatrix * normal);
                 intensity = dot(transformedNormal, lightDirection);
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
@@ -78,10 +78,12 @@ function createEarth() {
                 vec4 dayColor = texture2D(dayTexture, vUv);
                 vec4 nightColor = texture2D(nightTexture, vUv);
                 
+                // Aydınlık ve karanlık bölgeler arasında yumuşak geçiş
                 float darkness = 1.0 - smoothstep(-0.2, 0.2, intensity);
                 float dayLight = 1.0 - darkness;
                 
-                vec4 finalColor = mix(dayColor, nightColor, darkness * 0.8);
+                // Final rengi
+                vec4 finalColor = mix(dayColor, nightColor, darkness * 0.9); // Şehir ışıklarının etkisini biraz artır
                 
                 gl_FragColor = finalColor * dayLight;
                 gl_FragColor.a = 1.0;
@@ -114,8 +116,7 @@ function getGMTRotationAngle() {
     
     const angle = rotationRatio * Math.PI * 2; 
     
-    // **KRİTİK DÜZELTME:** Haritayı UTC saatine tam olarak hizalamak için gerekli ofset.
-    // Bu değer (yaklaşık 120 derece), 0 boylamının 00:00 UTC'de tam karanlıkta olmasını sağlar.
+    // Haritayı UTC saatine tam olarak hizalamak için gerekli ofset (120 derece)
     const HARITA_HIZALAMA_OFSETI = THREE.MathUtils.degToRad(120); 
 
     return angle + HARITA_HIZALAMA_OFSETI; 
@@ -164,11 +165,13 @@ setInterval(updateClockList, 1000);
 function animate() {
     requestAnimationFrame(animate);
 
-    // Kilit Nokta: Otomatik dönüş ve Işık Senkronizasyonu
     if (earth) {
         controls.update(); 
         
+        // DÜZELTME: Dünya hep dönsün (24 saat döngüsü)
+        // Kullanıcının etkileşimi bittikten sonra, UTC senkronizasyonuna dönecek.
         if (!isUserInteracting) {
+            
             // Işık Yönünü UTC saatine göre döndür
             const targetLightAngle = getGMTRotationAngle(); 
             
