@@ -4,35 +4,38 @@
     <meta charset="UTF-8">
     <title>Dinamik UTC Dünya Modeli ve Saat Listesi</title>
     <style>
+        /* TEMEL STİL */
         body { 
             margin: 0; 
             overflow: hidden; 
             background-color: #000; 
-            color: white; /* Metin rengi */
+            color: white; 
             font-family: sans-serif;
         }
         canvas { 
             display: block; 
         }
 
-        /* Saat Listesi Stili */
+        /* SAAT LİSTESİ STİLİ */
         #clock-list-container {
             position: absolute;
             top: 20px;
             right: 20px;
             width: 250px;
             padding: 15px;
-            background-color: rgba(0, 0, 0, 0.7); /* Şeffaf siyah arka plan */
+            background-color: rgba(0, 0, 0, 0.8); /* Daha az şeffaf arka plan */
+            border: 1px solid #00ffff;
             border-radius: 8px;
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
-            z-index: 100; /* Kürenin üstünde kalması için */
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3); /* Parlak gölge */
+            z-index: 100;
         }
         #clock-list-container h2 {
             margin-top: 0;
             font-size: 1.2em;
-            border-bottom: 1px solid #444;
+            border-bottom: 2px solid #00ffff;
             padding-bottom: 5px;
             color: #00ffff;
+            text-shadow: 0 0 5px #00ffff;
         }
         .clock-item {
             display: flex;
@@ -42,7 +45,7 @@
         }
         .clock-time {
             font-weight: bold;
-            color: #ffcc00; /* Sarımsı saat rengi */
+            color: #ffcc00; 
         }
     </style>
 </head>
