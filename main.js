@@ -29,11 +29,12 @@ controls.maxDistance = 15;
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
 
-// Kullanıcı etkileşimini yönetme (Dönüşü durdur/başlat)
+// Kullanıcı etkileşimini yönetme
 controls.addEventListener('start', () => {
     isUserInteracting = true;
 });
 controls.addEventListener('end', () => {
+    // 1 saniye sonra otomatik dönüşe yumuşakça devam et
     setTimeout(() => {
         isUserInteracting = false;
     }, 1000); 
@@ -44,7 +45,6 @@ function createEarth() {
     const geometry = new THREE.SphereGeometry(EARTH_RADIUS, 64, 64);
     const loader = new THREE.TextureLoader();
     
-    // Dokuların düzgün yüklendiğinden emin olun (Yerel Sunucu Gerekir!)
     const dayTexture = loader.load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg');
     const nightTexture = loader.load('https://threejs.org/examples/textures/planets/earth_lights_2048.png');
     
@@ -94,26 +94,65 @@ function createEarth() {
 
 function getGMTRotationAngle() {
     const now = new Date();
-    // UTC saatini al (Gündüz/Gece döngüsünün temelini oluşturur)
+    // UTC saatini al (Dönme pozisyonunun temelini oluşturur)
     const hours = now.getUTCHours();
     const minutes = now.getUTCMinutes();
     const seconds = now.getUTCSeconds();
     
-    // Toplam 24 saate göre oranı bul (0.0 - 1.0)
     const totalHours = hours + (minutes / 60) + (seconds / 3600);
     const rotationRatio = totalHours / 24; 
     
-    // Radyan cinsinden hedef açı
     const angle = rotationRatio * Math.PI * 2; 
 
-    // Başlangıç ofseti: Harita dokusundaki 0 boylamının 00:00'da karanlık tarafta olmasını sağlar
+    // Başlangıç ofseti: Haritanın 0 boylamı gece yarısı (00:00 UTC) karanlıkta olmalı
     const textureOffset = THREE.MathUtils.degToRad(-90); 
     
     // Negatif değer, doğru coğrafi dönüş yönünü sağlar
     return -(angle + textureOffset); 
 }
 
-// --- ANİMASYON DÖNGÜSÜ ---
+// --- GÜNCEL SAAT LİSTESİ MANTIĞI ---
+
+const TIMEZONES = [
+    { name: "İstanbul (Türkiye)", timezone: "Europe/Istanbul" },
+    { name: "Londra (GMT)", timezone: "Europe/London" },
+    { name: "New York (EST)", timezone: "America/New_York" },
+    { name: "Şanghay (Pekin)", timezone: "Asia/Shanghai" },
+    { name: "Los Angeles (PST)", timezone: "America/Los_Angeles" }
+];
+
+const timeListElement = document.getElementById('time-list');
+
+function updateClockList() {
+    let html = '';
+    const options = { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit', 
+        hour12: false 
+    };
+    
+    TIMEZONES.forEach(city => {
+        // Her şehir için güncel saati o saat dilimine göre al
+        const formatter = new Intl.DateTimeFormat('tr-TR', { ...options, timeZone: city.timezone });
+        const timeString = formatter.format(new Date());
+        
+        html += `
+            <div class="clock-item">
+                <span>${city.name}:</span>
+                <span class="clock-time">${timeString}</span>
+            </div>
+        `;
+    });
+    
+    timeListElement.innerHTML = html;
+}
+
+// Saati her saniye güncelle
+setInterval(updateClockList, 1000);
+
+
+// --- ANİMASYON DÖNGÜSÜ (Dönme Sorunu Düzeltildi) ---
 function animate() {
     requestAnimationFrame(animate);
 
@@ -121,16 +160,14 @@ function animate() {
     if (!isUserInteracting && earth) {
         const targetRotation = getGMTRotationAngle(); 
         
-        // Yumuşak geçiş (Interpolation) ile hedef pozisyona kilitlen
-        // Hata giderme: Fazla dönmeyi engellemek için açılar arasındaki farkı kullan.
-        
+        // Düzeltme: Faz açısını hesaplayarak akıcı dönüşü sağla
         let delta = targetRotation - earth.rotation.y;
         
-        // Açılar 360 derecede dönerken geçişi yumuşatmak için
+        // Açılar 360 derecede dönerken oluşan sıçramayı engelle
         if (delta > Math.PI) delta -= (Math.PI * 2);
         if (delta < -Math.PI) delta += (Math.PI * 2);
 
-        // Mevcut pozisyonu hedefe doğru taşı
+        // Küreyi hedefe doğru yumuşakça döndür
         earth.rotation.y += delta * 0.05; 
     }
 
@@ -142,6 +179,7 @@ function animate() {
 // --- BAŞLATMA ---
 function init() {
     earth = createEarth();
+    updateClockList(); // İlk saat güncellemesini yap
     animate();
 }
 init();
