@@ -18,15 +18,17 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(width, height);
 container.appendChild(renderer.domElement);
 
-// --- IŞIKLANDIRMA (KRİTİK DÜZELTME) ---
-// 1. Ortam Işığını azaltarak karanlık bölgelerin gerçekten karanlık kalmasını sağla.
-const ambientLight = new THREE.AmbientLight(0x404040, 0.1); // Şiddet 0.5'ten 0.1'e düşürüldü
+// --- IŞIKLANDIRMA (YENİ AYARLAR - Maksimum Karanlık) ---
+
+// 1. Ortam Işığını çok düşürün (Karanlık bölgelerin aydınlanmasını engeller)
+const ambientLight = new THREE.AmbientLight(0x404040, 0.05); // 0.1'den 0.05'e düşürüldü
 scene.add(ambientLight);
 
-// 2. Yönlü Işık, Sahnenin genel aydınlatması için gereklidir (Şiddeti makul seviyede tutuldu).
-const sunlight = new THREE.DirectionalLight(0xffffff, 0.8); // Şiddet 2.5'ten 0.8'e düşürüldü
+// 2. Yönlü Işık şiddetini düşürün (Gündüz tarafını yumuşatır, daha kontrast sağlar)
+const sunlight = new THREE.DirectionalLight(0xffffff, 0.6); // 0.8'den 0.6'ya düşürüldü
 sunlight.position.set(2, 0, 0); 
 scene.add(sunlight);
+// ...
 
 // --- KONTROLLER ---
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
