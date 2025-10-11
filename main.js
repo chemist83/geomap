@@ -20,12 +20,14 @@ CSSRenderer.domElement.style.position = 'absolute';
 CSSRenderer.domElement.style.top = '0px';
 container.appendChild(CSSRenderer.domElement); 
 
-// --- IŞIKLANDIRMA ---
-const ambientLight = new THREE.AmbientLight(0x404040, 3);
+// --- IŞIKLANDIRMA (Dinamik Aydınlatma için) ---
+// Güneşi temsil eden ışık kaynağı, pozisyonu sabit kalır, dünya döner.
+const sunlight = new THREE.DirectionalLight(0xffffff, 2.5);
+sunlight.position.set(1, 0, 0); // Güneş X ekseninde sabit
+scene.add(sunlight);
+// Ortam Işığı (Gece tarafının tamamen karanlık olmaması için)
+const ambientLight = new THREE.AmbientLight(0x404040, 0.5); 
 scene.add(ambientLight);
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
-directionalLight.position.set(10, 5, 10);
-scene.add(directionalLight);
 
 // --- KONTROLLER ---
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -34,29 +36,68 @@ controls.maxDistance = 15;
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
 
-// --- DÜNYA KÜRESİ OLUŞTURMA ---
+// --- DÜNYA KÜRESİ OLUŞTURMA (Shader Malzemesi ile) ---
 function createEarth() {
     const geometry = new THREE.SphereGeometry(EARTH_RADIUS, 64, 64);
     const loader = new THREE.TextureLoader();
     
-    // Yüksek çözünürlüklü doku kullanılır
-    const earthTexture = loader.load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg');
+    // Yüksek çözünürlüklü Gündüz ve Gece dokuları
+    const dayTexture = loader.load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg');
+    const nightTexture = loader.load('https://threejs.org/examples/textures/planets/earth_lights_2048.png');
     
-    const material = new THREE.MeshPhongMaterial({
-        map: earthTexture,
-        shininess: 5,
+    // Gündüz/Gece ayrımını ve gece şehir ışıklarını gösteren özel Shader
+    const material = new THREE.ShaderMaterial({
+        uniforms: {
+            dayTexture: { value: dayTexture },
+            nightTexture: { value: nightTexture },
+            lightDirection: { value: new THREE.Vector3(1, 0, 0).normalize() } 
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            varying float intensity;
+            uniform vec3 lightDirection;
+            void main() {
+                vUv = uv;
+                // Işık açısını hesapla (Lambertian aydınlatma)
+                intensity = dot(normalize(normal), lightDirection);
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform sampler2D dayTexture;
+            uniform sampler2D nightTexture;
+            varying vec2 vUv;
+            varying float intensity;
+            void main() {
+                vec4 dayColor = texture2D(dayTexture, vUv);
+                vec4 nightColor = texture2D(nightTexture, vUv);
+                
+                // Aydınlık/Karanlık geçişini yumuşat (terminatör çizgisi)
+                float darkness = 1.0 - smoothstep(-0.2, 0.2, intensity);
+                float dayLight = 1.0 - darkness;
+                
+                // Gündüz ve Gece dokularını birleştir
+                vec4 finalColor = mix(dayColor, nightColor, darkness * 0.8);
+                
+                // Final rengini aydınlık şiddeti ile çarp ve uygula
+                gl_FragColor = finalColor * dayLight;
+                gl_FragColor.a = 1.0;
+            }
+        `
     });
     
     const earthMesh = new THREE.Mesh(geometry, material);
+    earthMesh.rotation.order = "YXZ"; 
+    
     scene.add(earthMesh);
     return earthMesh;
 }
 
 // --- MERİDYEN VE PARALELLERİ OLUŞTURMA (IZGARA) ---
 function createGraticules() {
-    const graticuleRadius = EARTH_RADIUS * 1.005; // Küreden biraz dışarıda
+    const graticuleRadius = EARTH_RADIUS * 1.005;
     const lineMaterial = new THREE.LineBasicMaterial({ 
-        color: 0x00ffff, // Turkuaz
+        color: 0x00ffff,
         transparent: true, 
         opacity: 0.4 
     });
@@ -74,7 +115,6 @@ function createGraticules() {
             const z = radiusAtLat * Math.sin(lonRad);
             points.push(new THREE.Vector3(x, y, z));
         }
-
         const geometry = new THREE.BufferGeometry().setFromPoints(points);
         const line = new THREE.Line(geometry, lineMaterial);
         scene.add(line);
@@ -87,20 +127,17 @@ function createGraticules() {
 
         for (let lat = -90; lat <= 90; lat += 2) {
             const latRad = THREE.MathUtils.degToRad(lat);
-            // Küresel -> Kartezyen (X-Z düzlemi Ekvator, Y ekseni Kutup)
             const x = graticuleRadius * Math.cos(latRad) * Math.cos(lonRad);
             const y = graticuleRadius * Math.sin(latRad);
             const z = graticuleRadius * Math.cos(latRad) * Math.sin(lonRad);
 
             points.push(new THREE.Vector3(x, y, z));
         }
-
         const geometry = new THREE.BufferGeometry().setFromPoints(points);
         const line = new THREE.Line(geometry, lineMaterial.clone());
         scene.add(line);
     }
 }
-
 
 // --- SAAT DİLİMİ VE ETKİLEŞİM SİSTEMİ ---
 const TIMEZONE_MERIDIANS = [
@@ -118,12 +155,11 @@ const TIMEZONE_MERIDIANS = [
     { name: "Rio de Janeiro", lon: -45, timezone: "America/Sao_Paulo" }
 ];
 
-const clockMarkers = []; // Raycasting için noktaları tutar
+const clockMarkers = []; 
 let activePopup = null;
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
-// Küresel koordinatları Kartezyen koordinatlara çevirir
 function latLonToXYZ(lat, lon, radius) {
     const latRad = THREE.MathUtils.degToRad(lat);
     const lonRad = THREE.MathUtils.degToRad(lon);
@@ -135,15 +171,13 @@ function latLonToXYZ(lat, lon, radius) {
     return new THREE.Vector3(x, y, z);
 }
 
-// Saat noktalarını (mesh) ve HTML popup'ları (CSS2DObject) oluşturur
 function createClockMarkers() {
     const markerGroup = new THREE.Group();
     const markerSize = EARTH_RADIUS * 0.03;
     const markerGeometry = new THREE.SphereGeometry(markerSize, 16, 16);
-    const markerMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Kırmızı nokta
+    const markerMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 
     TIMEZONE_MERIDIANS.forEach(tz => {
-        // Noktayı Ekvator (0 Enlem) üzerine yerleştir
         const position = latLonToXYZ(0, tz.lon, EARTH_RADIUS * 1.002);
         
         // 1. 3D Mesh Noktası
@@ -169,19 +203,15 @@ function createClockMarkers() {
 
         const label = new THREE.CSS2DObject(popupDiv);
         label.position.copy(position);
-        
-        // Popup'ı noktanın biraz üzerine konumlandır
         label.position.add(new THREE.Vector3(0, markerSize * 4, 0));
         
         markerMesh.userData.htmlElement = popupDiv;
-        
         markerGroup.add(label);
     });
 
     scene.add(markerGroup);
 }
 
-// Belirtilen saat dilimindeki güncel saati günceller
 function updateTime(timezone) {
     const options = { 
         hour: '2-digit', 
@@ -199,9 +229,7 @@ function updateTime(timezone) {
     }
 }
 
-// Açık olan tüm popup'ların saatlerini her saniye günceller
 function updateAllVisibleTimes() {
-    // Sadece aktif (görünür) popup'ları güncelleyerek performansı koruruz
     if (activePopup) {
         const markerData = TIMEZONE_MERIDIANS.find(tz => {
             const id = `time-${tz.timezone.replace('/', '-')}`;
@@ -214,38 +242,30 @@ function updateAllVisibleTimes() {
 }
 setInterval(updateAllVisibleTimes, 1000);
 
-// Tıklama olayını işler (Raycasting)
 function onMarkerClick(event) {
-    // 1. Fare pozisyonunu normalize et (-1'den 1'e)
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-    // 2. Raycaster'ı güncelle
     raycaster.setFromCamera(mouse, camera);
-
-    // 3. Çarpan nesneleri bul
     const intersects = raycaster.intersectObjects(clockMarkers);
 
     if (intersects.length > 0) {
         const marker = intersects[0].object;
         const popup = marker.userData.htmlElement;
 
-        // Daha önce açık olan popup'ı kapat
         if (activePopup && activePopup !== popup) {
             activePopup.style.display = 'none';
         }
 
-        // Tıklanan popup'ı aç/kapat
         if (popup.style.display === 'none') {
             popup.style.display = 'block';
             activePopup = popup;
-            updateTime(marker.userData.timezone); // Saati ilk kez ve hemen güncelle
+            updateTime(marker.userData.timezone);
         } else {
             popup.style.display = 'none';
             activePopup = null;
         }
     } else {
-        // Hiçbir yere tıklanmadıysa, açık olanı kapat
         if (activePopup) {
             activePopup.style.display = 'none';
             activePopup = null;
@@ -254,17 +274,39 @@ function onMarkerClick(event) {
 }
 window.addEventListener('click', onMarkerClick, false);
 
+// --- DİNAMİK ROTASYON MANTIĞI ---
+
+function getGMTRotationAngle() {
+    const now = new Date();
+    
+    // UTC saatini al
+    const hours = now.getUTCHours();
+    const minutes = now.getUTCMinutes();
+    const seconds = now.getUTCSeconds();
+    
+    const totalHours = hours + (minutes / 60) + (seconds / 3600);
+    
+    // Toplam dönüş açısı (Radyan)
+    const angle = (totalHours / 24) * Math.PI * 2; 
+
+    // Three.js dokusunun başlangıç pozisyonunu Güneş'e göre ayarlamak için ofset (yaklaşık -90 derece)
+    // Bu, 0 boylamının (GMT) 00:00'da karanlık tarafta (Güneş'in tam karşısında) olmasını sağlar.
+    const textureOffset = THREE.MathUtils.degToRad(-90); 
+    
+    return angle + textureOffset; 
+}
 
 // --- ANİMASYON DÖNGÜSÜ ---
 function animate() {
     requestAnimationFrame(animate);
 
-    // Küreyi yavaşça döndürme
-    earth.rotation.y += 0.001;
+    // DÜNYA, GÜNCEL UTC SAATİNE GÖRE DÖNÜYOR
+    const currentRotation = getGMTRotationAngle();
+    earth.rotation.y = -currentRotation; 
 
     controls.update(); 
     renderer.render(scene, camera);
-    CSSRenderer.render(scene, camera); // HTML popup'larını da render et!
+    CSSRenderer.render(scene, camera);
 }
 
 
