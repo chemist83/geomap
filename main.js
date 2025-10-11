@@ -4,8 +4,8 @@ const container = document.getElementById('globe-container');
 const width = window.innerWidth;
 const height = window.innerHeight;
 const EARTH_RADIUS = 5;
-let isUserInteracting = false; // Kullanıcı şu an fareyi kullanıyor mu?
-let earth; // Küre objesi
+let isUserInteracting = false; 
+let earth; 
 
 // --- KAMERA VE RENDERER KURULUMU ---
 const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
@@ -29,12 +29,11 @@ controls.maxDistance = 15;
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
 
-// Kullanıcı etkileşimini yönetme
+// Kullanıcı etkileşimini yönetme (Dönüşü durdur/başlat)
 controls.addEventListener('start', () => {
     isUserInteracting = true;
 });
 controls.addEventListener('end', () => {
-    // 1 saniye sonra otomatik dönüşe yumuşakça devam et
     setTimeout(() => {
         isUserInteracting = false;
     }, 1000); 
@@ -45,6 +44,7 @@ function createEarth() {
     const geometry = new THREE.SphereGeometry(EARTH_RADIUS, 64, 64);
     const loader = new THREE.TextureLoader();
     
+    // Dokuların düzgün yüklendiğinden emin olun (Yerel Sunucu Gerekir!)
     const dayTexture = loader.load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg');
     const nightTexture = loader.load('https://threejs.org/examples/textures/planets/earth_lights_2048.png');
     
@@ -94,18 +94,23 @@ function createEarth() {
 
 function getGMTRotationAngle() {
     const now = new Date();
-    // UTC saatini al
+    // UTC saatini al (Gündüz/Gece döngüsünün temelini oluşturur)
     const hours = now.getUTCHours();
     const minutes = now.getUTCMinutes();
     const seconds = now.getUTCSeconds();
     
+    // Toplam 24 saate göre oranı bul (0.0 - 1.0)
     const totalHours = hours + (minutes / 60) + (seconds / 3600);
-    const angle = (totalHours / 24) * Math.PI * 2; 
+    const rotationRatio = totalHours / 24; 
+    
+    // Radyan cinsinden hedef açı
+    const angle = rotationRatio * Math.PI * 2; 
 
-    // Başlangıç ofseti (harita dokusunun 0 boylamını Güneş'ten uzak tutar)
+    // Başlangıç ofseti: Harita dokusundaki 0 boylamının 00:00'da karanlık tarafta olmasını sağlar
     const textureOffset = THREE.MathUtils.degToRad(-90); 
     
-    return angle + textureOffset; 
+    // Negatif değer, doğru coğrafi dönüş yönünü sağlar
+    return -(angle + textureOffset); 
 }
 
 // --- ANİMASYON DÖNGÜSÜ ---
@@ -114,14 +119,19 @@ function animate() {
 
     // Otomatik dönüş: Sadece kullanıcı kontrol etmiyorsa çalışır
     if (!isUserInteracting && earth) {
-        const targetRotation = -getGMTRotationAngle(); 
+        const targetRotation = getGMTRotationAngle(); 
         
-        // Yumuşak geçiş (Interpolation) kullanarak hedef pozisyona hareket et.
-        // Bu, ani sıçramaları önler ve kontrolü bırakınca akıcı dönüş sağlar.
-        earth.rotation.y += (targetRotation - earth.rotation.y) * 0.05; 
+        // Yumuşak geçiş (Interpolation) ile hedef pozisyona kilitlen
+        // Hata giderme: Fazla dönmeyi engellemek için açılar arasındaki farkı kullan.
         
-        // Dünya sürekli dönsün isterseniz bu kodu kullanın:
-        // earth.rotation.y += 0.001; 
+        let delta = targetRotation - earth.rotation.y;
+        
+        // Açılar 360 derecede dönerken geçişi yumuşatmak için
+        if (delta > Math.PI) delta -= (Math.PI * 2);
+        if (delta < -Math.PI) delta += (Math.PI * 2);
+
+        // Mevcut pozisyonu hedefe doğru taşı
+        earth.rotation.y += delta * 0.05; 
     }
 
     controls.update(); 
