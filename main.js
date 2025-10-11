@@ -18,8 +18,7 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(width, height);
 container.appendChild(renderer.domElement);
 
-// --- IŞIKLANDIRMA (Sahne için genel ışık) ---
-// Bu ışık, sahne objelerini aydınlatır ancak kürenin Shader'ı bu ışığı görmez.
+// --- IŞIKLANDIRMA ---
 const sunlight = new THREE.DirectionalLight(0xffffff, 2.5);
 sunlight.position.set(2, 0, 0); 
 scene.add(sunlight);
@@ -48,6 +47,7 @@ function createEarth() {
     const geometry = new THREE.SphereGeometry(EARTH_RADIUS, 64, 64);
     const loader = new THREE.TextureLoader();
     
+    // Harici dokular yükleniyor (Yerel sunucu gereklidir!)
     const dayTexture = loader.load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg');
     const nightTexture = loader.load('https://threejs.org/examples/textures/planets/earth_lights_2048.png');
     
@@ -55,7 +55,6 @@ function createEarth() {
         uniforms: {
             dayTexture: { value: dayTexture },
             nightTexture: { value: nightTexture },
-            // Shader artık bu global vektörü kullanacak
             lightDirection: { value: lightDirectionVector } 
         },
         vertexShader: `
@@ -93,14 +92,14 @@ function createEarth() {
     const earthMesh = new THREE.Mesh(geometry, material);
     earthMesh.rotation.order = "YXZ"; 
     
-    // DÜZELTME: Dünyanın başlangıç ofsetini sabitleyelim
+    // Dünyanın başlangıç ofsetini sabitle (Haritayı ortalamak için)
     earthMesh.rotation.y = THREE.MathUtils.degToRad(-90); 
     
     scene.add(earthMesh);
     return earthMesh;
 }
 
-// --- UTC ROTASYON AÇISI HESAPLAMA ---
+// --- UTC ROTASYON AÇISI HESAPLAMA (OFSET DÜZELTİLDİ) ---
 
 function getGMTRotationAngle() {
     const now = new Date();
@@ -110,18 +109,19 @@ function getGMTRotationAngle() {
     const seconds = now.getUTCSeconds();
     const milliseconds = now.getUTCMilliseconds();
 
-    // Toplam 24 saate göre oranı bul
     const totalHours = hours + (minutes / 60) + (seconds / 3600) + (milliseconds / 3600000);
     const rotationRatio = totalHours / 24; 
     
-    // Radyan cinsinden hedef açı
     const angle = rotationRatio * Math.PI * 2; 
+    
+    // **KRİTİK DÜZELTME:** Haritayı UTC saatine tam olarak hizalamak için gerekli ofset.
+    // Bu değer (yaklaşık 120 derece), 0 boylamının 00:00 UTC'de tam karanlıkta olmasını sağlar.
+    const HARITA_HIZALAMA_OFSETI = THREE.MathUtils.degToRad(120); 
 
-    // Not: Artık kürenin ofsetini değil, direk saat açısını döndürüyoruz.
-    return angle; 
+    return angle + HARITA_HIZALAMA_OFSETI; 
 }
 
-// --- GÜNCEL SAAT LİSTESİ MANTIĞI ---
+// --- GÜNCEL SAAT LİSTESİ MANTIĞI (Aynı kalır) ---
 
 const TIMEZONES = [
     { name: "İstanbul (Türkiye)", timezone: "Europe/Istanbul" },
@@ -160,21 +160,19 @@ function updateClockList() {
 // Saati her saniye güncelle
 setInterval(updateClockList, 1000);
 
-// --- ANİMASYON DÖNGÜSÜ ---
+// --- ANİMASYON DÖNGÜSÜ (Işık Yönü Rotasyonu) ---
 function animate() {
     requestAnimationFrame(animate);
 
     // Kilit Nokta: Otomatik dönüş ve Işık Senkronizasyonu
     if (earth) {
-        // Kontroller her zaman güncellenmeli
         controls.update(); 
         
         if (!isUserInteracting) {
-            // YENİ MANTIK: Dünyayı sabit tut, Işık Yönünü döndür
+            // Işık Yönünü UTC saatine göre döndür
             const targetLightAngle = getGMTRotationAngle(); 
             
-            // lightDirectionVector'u Y ekseni etrafında döndür
-            // Saatler batıdan doğuya (sağdan sola) döndüğü için negatif açı kullanıyoruz
+            // Işık vektörünü Y ekseni etrafında döndür (Negatif açı, doğru dönüş yönü için)
             lightDirectionVector.x = Math.cos(-targetLightAngle);
             lightDirectionVector.z = Math.sin(-targetLightAngle);
             
