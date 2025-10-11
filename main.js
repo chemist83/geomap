@@ -7,6 +7,9 @@ const EARTH_RADIUS = 5;
 let isUserInteracting = false; 
 let earth; 
 
+// Işık Yönü Vektörü (Shader'a gönderilen uniform)
+const lightDirectionVector = new THREE.Vector3(1, 0, 0).normalize();
+
 // --- KAMERA VE RENDERER KURULUMU ---
 const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
 camera.position.z = 10;
@@ -15,9 +18,10 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(width, height);
 container.appendChild(renderer.domElement);
 
-// --- IŞIKLANDIRMA ---
+// --- IŞIKLANDIRMA (Sahne için genel ışık) ---
+// Bu ışık, sahne objelerini aydınlatır ancak kürenin Shader'ı bu ışığı görmez.
 const sunlight = new THREE.DirectionalLight(0xffffff, 2.5);
-sunlight.position.set(1, 0, 0); 
+sunlight.position.set(2, 0, 0); 
 scene.add(sunlight);
 const ambientLight = new THREE.AmbientLight(0x404040, 0.5); 
 scene.add(ambientLight);
@@ -34,7 +38,6 @@ controls.addEventListener('start', () => {
     isUserInteracting = true;
 });
 controls.addEventListener('end', () => {
-    // Kontrolü bıraktıktan sonra otomatik dönüşe geçiş
     setTimeout(() => {
         isUserInteracting = false;
     }, 1000); 
@@ -45,7 +48,6 @@ function createEarth() {
     const geometry = new THREE.SphereGeometry(EARTH_RADIUS, 64, 64);
     const loader = new THREE.TextureLoader();
     
-    // Harici dokular yükleniyor (Yerel sunucu gereklidir!)
     const dayTexture = loader.load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg');
     const nightTexture = loader.load('https://threejs.org/examples/textures/planets/earth_lights_2048.png');
     
@@ -53,7 +55,8 @@ function createEarth() {
         uniforms: {
             dayTexture: { value: dayTexture },
             nightTexture: { value: nightTexture },
-            lightDirection: { value: new THREE.Vector3(1, 0, 0).normalize() } 
+            // Shader artık bu global vektörü kullanacak
+            lightDirection: { value: lightDirectionVector } 
         },
         vertexShader: `
             varying vec2 vUv;
@@ -61,7 +64,9 @@ function createEarth() {
             uniform vec3 lightDirection;
             void main() {
                 vUv = uv;
-                intensity = dot(normalize(normal), lightDirection);
+                // Işık Yönünü model matrisi ile çarp (Dünyanın kendi dönüşünü hesaba katmak için)
+                vec3 transformedNormal = normalize(normalMatrix * normal);
+                intensity = dot(transformedNormal, lightDirection);
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
             }
         `,
@@ -87,19 +92,19 @@ function createEarth() {
     
     const earthMesh = new THREE.Mesh(geometry, material);
     earthMesh.rotation.order = "YXZ"; 
+    
+    // DÜZELTME: Dünyanın başlangıç ofsetini sabitleyelim
+    earthMesh.rotation.y = THREE.MathUtils.degToRad(-90); 
+    
     scene.add(earthMesh);
     return earthMesh;
 }
 
-// --- DİNAMİK ROTASYON MANTIĞI (UTC'ye göre) ---
+// --- UTC ROTASYON AÇISI HESAPLAMA ---
 
-/**
- * Şu anki UTC saatine göre dünyanın dönmesi gereken radyan açısını hesaplar.
- */
 function getGMTRotationAngle() {
     const now = new Date();
     
-    // Yüksek hassasiyet için milisaniyeleri de dahil etme
     const hours = now.getUTCHours();
     const minutes = now.getUTCMinutes();
     const seconds = now.getUTCSeconds();
@@ -109,13 +114,11 @@ function getGMTRotationAngle() {
     const totalHours = hours + (minutes / 60) + (seconds / 3600) + (milliseconds / 3600000);
     const rotationRatio = totalHours / 24; 
     
+    // Radyan cinsinden hedef açı
     const angle = rotationRatio * Math.PI * 2; 
 
-    // Başlangıç ofseti (0 boylamının 00:00 UTC'de karanlıkta olmasını sağlar)
-    const textureOffset = THREE.MathUtils.degToRad(-90); 
-    
-    // Negatif değer, dünyanın batıdan doğuya doğru dönüşünü sağlar (Eksen: Y)
-    return -(angle + textureOffset); 
+    // Not: Artık kürenin ofsetini değil, direk saat açısını döndürüyoruz.
+    return angle; 
 }
 
 // --- GÜNCEL SAAT LİSTESİ MANTIĞI ---
@@ -157,29 +160,29 @@ function updateClockList() {
 // Saati her saniye güncelle
 setInterval(updateClockList, 1000);
 
-
-// --- ANİMASYON DÖNGÜSÜ (Dönme Mantığı Düzeltildi) ---
+// --- ANİMASYON DÖNGÜSÜ ---
 function animate() {
     requestAnimationFrame(animate);
 
-    // Otomatik dönüş: Sadece kullanıcı kontrol etmiyorsa çalışır
-    if (!isUserInteracting && earth) {
-        const targetRotation = getGMTRotationAngle(); 
+    // Kilit Nokta: Otomatik dönüş ve Işık Senkronizasyonu
+    if (earth) {
+        // Kontroller her zaman güncellenmeli
+        controls.update(); 
         
-        let currentRotation = earth.rotation.y;
-        
-        // Açılar arasında en kısa farkı hesapla (Delta hesaplama düzeltildi)
-        let delta = targetRotation - currentRotation;
-        
-        // Bu döngü, dönüşün 360/0 geçişlerinde ters yöne gitmesini engeller
-        while (delta > Math.PI) delta -= (Math.PI * 2);
-        while (delta < -Math.PI) delta += (Math.PI * 2);
-
-        // Küreyi hedefe doğru yumuşakça döndür (akıcı kilitlenme)
-        earth.rotation.y += delta * 0.05; 
+        if (!isUserInteracting) {
+            // YENİ MANTIK: Dünyayı sabit tut, Işık Yönünü döndür
+            const targetLightAngle = getGMTRotationAngle(); 
+            
+            // lightDirectionVector'u Y ekseni etrafında döndür
+            // Saatler batıdan doğuya (sağdan sola) döndüğü için negatif açı kullanıyoruz
+            lightDirectionVector.x = Math.cos(-targetLightAngle);
+            lightDirectionVector.z = Math.sin(-targetLightAngle);
+            
+            // Shader'a gönderilen vektörün güncellendiğini bildir
+            earth.material.uniforms.lightDirection.value = lightDirectionVector;
+        }
     }
-
-    controls.update(); 
+    
     renderer.render(scene, camera);
 }
 
@@ -187,7 +190,7 @@ function animate() {
 // --- BAŞLATMA ---
 function init() {
     earth = createEarth();
-    updateClockList(); 
+    updateClockList();
     animate();
 }
 init();
