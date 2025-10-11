@@ -34,7 +34,6 @@ controls.addEventListener('start', () => {
     isUserInteracting = true;
 });
 controls.addEventListener('end', () => {
-    // 1 saniye sonra otomatik dönüşe yumuşakça devam et
     setTimeout(() => {
         isUserInteracting = false;
     }, 1000); 
@@ -92,19 +91,28 @@ function createEarth() {
 
 // --- DİNAMİK ROTASYON MANTIĞI (UTC'ye göre) ---
 
+/**
+ * Şu anki UTC saatine göre dünyanın dönmesi gereken radyan açısını hesaplar.
+ * Yüksek çözünürlüklü zamanlama ile daha akıcı dönüş sağlar.
+ */
 function getGMTRotationAngle() {
     const now = new Date();
-    // UTC saatini al (Dönme pozisyonunun temelini oluşturur)
+    
+    // UTC saatini, dakikayı ve saniyeyi al
     const hours = now.getUTCHours();
     const minutes = now.getUTCMinutes();
     const seconds = now.getUTCSeconds();
-    
-    const totalHours = hours + (minutes / 60) + (seconds / 3600);
+    const milliseconds = now.getUTCMilliseconds(); // Yüksek hassasiyet için milisaniyeleri de dahil et
+
+    // Toplam 24 saate göre oranı bul (0.0 - 1.0)
+    // Saniye ve milisaniyeleri de dahil ederek saat dilimini daha doğru hesaplarız
+    const totalHours = hours + (minutes / 60) + (seconds / 3600) + (milliseconds / 3600000);
     const rotationRatio = totalHours / 24; 
     
+    // Radyan cinsinden hedef açı
     const angle = rotationRatio * Math.PI * 2; 
 
-    // Başlangıç ofseti: Haritanın 0 boylamı gece yarısı (00:00 UTC) karanlıkta olmalı
+    // Başlangıç ofseti (0 boylamının 00:00 UTC'de karanlıkta olmasını sağlar)
     const textureOffset = THREE.MathUtils.degToRad(-90); 
     
     // Negatif değer, doğru coğrafi dönüş yönünü sağlar
@@ -133,7 +141,6 @@ function updateClockList() {
     };
     
     TIMEZONES.forEach(city => {
-        // Her şehir için güncel saati o saat dilimine göre al
         const formatter = new Intl.DateTimeFormat('tr-TR', { ...options, timeZone: city.timezone });
         const timeString = formatter.format(new Date());
         
@@ -152,7 +159,7 @@ function updateClockList() {
 setInterval(updateClockList, 1000);
 
 
-// --- ANİMASYON DÖNGÜSÜ (Dönme Sorunu Düzeltildi) ---
+// --- ANİMASYON DÖNGÜSÜ ---
 function animate() {
     requestAnimationFrame(animate);
 
@@ -160,14 +167,14 @@ function animate() {
     if (!isUserInteracting && earth) {
         const targetRotation = getGMTRotationAngle(); 
         
-        // Düzeltme: Faz açısını hesaplayarak akıcı dönüşü sağla
+        // Düzeltme: Faz açısını hesaplayarak sıçramayı önle
         let delta = targetRotation - earth.rotation.y;
         
-        // Açılar 360 derecede dönerken oluşan sıçramayı engelle
+        // Açı farkını en kısa yoldan hesapla (360 derece döngüsü)
         if (delta > Math.PI) delta -= (Math.PI * 2);
         if (delta < -Math.PI) delta += (Math.PI * 2);
 
-        // Küreyi hedefe doğru yumuşakça döndür
+        // Küreyi hedefe doğru yumuşakça döndür (interpolation)
         earth.rotation.y += delta * 0.05; 
     }
 
