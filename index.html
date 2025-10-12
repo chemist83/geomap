@@ -1,66 +1,96 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Dinamik UTC Dünya Modeli ve Saat Listesi</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Real-time Day/Night Earth (Three.js, ES Modules)</title>
     <style>
-        /* TEMEL STİL */
-        body { 
-            margin: 0; 
-            overflow: hidden; 
-            background-color: #000; 
-            color: white; 
-            font-family: sans-serif;
+        html, body {
+            height: 100%;
         }
-        canvas { 
-            display: block; 
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            color: #fff;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
         }
-
-        /* SAAT LİSTESİ STİLİ */
-        #clock-list-container {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 250px;
-            padding: 15px;
-            background-color: rgba(0, 0, 0, 0.8); 
-            border: 1px solid #00ffff;
+        canvas { display: block; }
+        #globe-container {
+            position: fixed;
+            inset: 0;
+        }
+        #time-overlay {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            width: 260px;
+            padding: 12px 14px;
+            background: rgba(0,0,0,0.72);
+            border: 1px solid rgba(0,255,255,0.5);
             border-radius: 8px;
-            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3); 
-            z-index: 100;
+            backdrop-filter: blur(4px);
+            z-index: 10;
         }
-        #clock-list-container h2 {
-            margin-top: 0;
-            font-size: 1.2em;
-            border-bottom: 2px solid #00ffff;
-            padding-bottom: 5px;
-            color: #00ffff;
-            text-shadow: 0 0 5px #00ffff;
+        #time-overlay h2 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+            color: #8ffcff;
         }
-        .clock-item {
+        .time-row {
             display: flex;
+            align-items: baseline;
             justify-content: space-between;
-            margin-bottom: 8px;
-            font-size: 1.1em;
+            font-size: 13px;
+            padding: 4px 0;
+            border-bottom: 1px dashed rgba(0,255,255,0.15);
         }
-        .clock-time {
-            font-weight: bold;
-            color: #ffcc00; 
+        .time-row:last-child {
+            border-bottom: none;
+        }
+        .time-label { color: #e0f7ff; }
+        .time-clock { color: #ffd166; font-variant-numeric: tabular-nums; }
+        #watermark {
+            position: fixed;
+            left: 16px;
+            bottom: 14px;
+            z-index: 20;
+            color: #e6fbff;
+            font-size: 12px;
+            letter-spacing: 0.3px;
+            text-shadow:
+                0 0 4px rgba(255,255,255,0.6),
+                0 0 8px rgba(0, 255, 255, 0.5),
+                0 0 16px rgba(0, 255, 255, 0.35);
+            user-select: none;
+            pointer-events: none;
         }
     </style>
+    <!-- ES Module Shims for broad import map support -->
+    <script async src="https://unpkg.com/es-module-shims@1.10.0/dist/es-module-shims.js" crossorigin="anonymous"></script>
+    <!-- Import map for bare module specifiers -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+    </script>
 </head>
 <body>
     <div id="globe-container"></div>
-    
-    <div id="clock-list-container">
-        <h2>Küresel Saatler</h2>
-        <div id="time-list">
-            </div>
+    <div id="time-overlay">
+        <h2>Provinces Time</h2>
+        <div id="time-list"></div>
     </div>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    
-    <script src="main.js"></script>
-</body>
+    <div id="watermark">© 2018 KaanGeo, Education ED</div>
+    <script type="module">
+        import './main.js';
+    </script>
+    <noscript>
+        Please enable JavaScript to view the 3D Earth.
+    </noscript>
+    </body>
 </html>
