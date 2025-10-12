@@ -131,7 +131,8 @@ const TIMEZONES = [
     { name: "Londra (GMT)", timezone: "Europe/London" },
     { name: "New York (EST)", timezone: "America/New_York" },
     { name: "Şanghay (Pekin)", timezone: "Asia/Shanghai" },
-    { name: "Los Angeles (PST)", timezone: "America/Los_Angeles" }
+    { name: "Los Angeles (PST)", timezone: "America/Los_Angeles" },
+    { name: "Berlin (Germany)", timezone: "Europe/Berlin" }
 ];
 
 const timeListElement = document.getElementById('time-list');
