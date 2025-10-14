@@ -163,7 +163,8 @@ const PROVINCES = [
   { name: 'Rome (Italy)', tz: "Europe/Rome" },
   { name: 'Tehran (Iran)', tz: "Asia/Tehran" },
   { name: 'Lisbon (Portugal)', tz: "Europe/Lisbon" },
-  { name: 'Brasília (Brazil)', tz: "America/Sao_Paulo" }
+  { name: 'Brasília (Brazil)', tz: "America/Sao_Paulo" },
+  { name: 'Tokyo (Japan)', tz: "Asia/Tokyo" }
 ];
 
 const timeListEl = document.getElementById('time-list');
