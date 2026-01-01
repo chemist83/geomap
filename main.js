@@ -152,13 +152,11 @@ window.addEventListener('resize', () => {
 
 // Provinces time overlay
 const PROVINCES = [
-  { name: 'Istanbul', tz: 'Europe/Istanbul' },
-  { name: 'Ankara', tz: 'Europe/Istanbul' },
-  { name: 'Izmir', tz: 'Europe/Istanbul' },
-  { name: 'London', tz: 'Europe/London' },
-  { name: 'New York', tz: 'America/New_York' },
-  { name: 'Shanghai', tz: 'Asia/Shanghai' },
-  { name: 'Los Angeles', tz: 'America/Los_Angeles' },
+  { name: 'Istanbul (Turkiye', tz: 'Europe/Istanbul' },
+  { name: 'London (England', tz: 'Europe/London' },
+  { name: 'New York (USA)', tz: 'America/New_York' },
+  { name: 'Shanghai (China)', tz: 'Asia/Shanghai' },
+  { name: 'Los Angeles (USA)', tz: 'America/Los_Angeles' },
   { name: 'Berlin (Germany)', tz: "Europe/Berlin" },
   { name: 'Rome (Italy)', tz: "Europe/Rome" },
   { name: 'Tehran (Iran)', tz: "Asia/Tehran" },
