@@ -164,7 +164,10 @@ const PROVINCES = [
   { name: 'Tehran (Iran)', tz: "Asia/Tehran" },
   { name: 'Lisbon (Portugal)', tz: "Europe/Lisbon" },
   { name: 'Brasília (Brazil)', tz: "America/Sao_Paulo" },
-  { name: 'Tokyo (Japan)', tz: "Asia/Tokyo" }
+  { name: 'Tokyo (Japan)', tz: "Asia/Tokyo" },
+  { name: 'Wellington (New Zealand)', tz: "Pacific/Auckland" },
+  { name: 'Tarawa (Kiribati)', tz: 'Pacific/Tarawa' },
+  { name: 'Honolulu (Hawaii)', tz: 'Pacific/Honolulu' }
 ];
 
 const timeListEl = document.getElementById('time-list');
